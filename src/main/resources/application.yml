@@ -1,0 +1,8 @@
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+github:
+  token: ${GITHUB_TOKEN}
+  repository: ${GITHUB_REPOSITORY}
