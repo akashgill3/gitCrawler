@@ -1,5 +1,6 @@
 package com.akashgill3.githubcrawler.github.service;
 
+import com.akashgill3.githubcrawler.github.exception.GitHubClientException;
 import com.akashgill3.githubcrawler.github.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +11,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,7 +53,7 @@ public class GitHubService {
                 Instant end = Instant.now();
                 log.info("Indexed data in {} ms", Duration.between(start, end).toMillis());
                 log.info("End of Indexing, remaining rate limit: {}", githubClient.getRateLimit().getRemaining());
-            } catch (IOException e) {
+            } catch (GitHubClientException e) {
                 log.error("Failed to index data", e);
             }
         }, executorService);
@@ -87,13 +87,12 @@ public class GitHubService {
 
             // Return a future that completes when all tasks are done
             return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
-        } catch (IOException e) {
+        } catch (GitHubClientException e) {
             CompletableFuture<Void> future = new CompletableFuture<>();
             future.completeExceptionally(e);
             return future;
         }
     }
-
 
     public void reindexPrinciples(Set<String> affectedPrinciples) {
         CompletableFuture.runAsync(() -> {
@@ -136,86 +135,96 @@ public class GitHubService {
 
     private CompletableFuture<Principle> processPrinciple(String path) {
         return CompletableFuture.supplyAsync(() -> {
-            String directoryName = getLastPartOfPath(path);
+            try {
+                String directoryName = getLastPartOfPath(path);
 
-            String jsonPath = path + "/" + directoryName + ".json";
-            String mdPath = path + "/" + directoryName + ".md";
+                String jsonPath = path + "/" + directoryName + ".json";
+                String mdPath = path + "/" + directoryName + ".md";
 
-            // Get metadata from JSON file
-            var jsonString = githubClient.getFileContent(jsonPath);
-            var metadata = parseMetadata(jsonString, PrincipleMetadata.class);
+                // Get metadata from JSON file
+                var jsonString = githubClient.getFileContent(jsonPath);
+                var metadata = parseMetadata(jsonString, PrincipleMetadata.class);
 
-            // Get content from MD file
-            String markdownContent = githubClient.getFileContent(mdPath);
+                // Get content from MD file
+                String markdownContent = githubClient.getFileContent(mdPath);
 
-            // Process sub-directories (sub-practices)
-            List<GHContent> directoryContent = githubClient.getDirectoryContent(path);
+                // Process sub-directories (sub-practices)
+                List<GHContent> directoryContent = githubClient.getDirectoryContent(path);
 
-            ConcurrentMap<String, Practise> practises = new ConcurrentHashMap<>();
+                ConcurrentMap<String, Practise> practises = new ConcurrentHashMap<>();
 
-            List<CompletableFuture<Void>> subTasks = new ArrayList<>();
+                List<CompletableFuture<Void>> subTasks = new ArrayList<>();
 
-            for (GHContent content : directoryContent) {
-                if (content.isDirectory()) {
-                    CompletableFuture<Void> subTask = processPractise(content.getPath())
-                            .thenAccept(practise -> {
-                                practises.put(content.getName(), practise);
-                                log.info("Practise: {} indexed", content.getName());
-                            })
-                            .exceptionally(e -> {
-                                log.error("Failed to process practice: {}", content.getName(), e);
-                                return null;
-                            });
-                    subTasks.add(subTask);
+                for (GHContent content : directoryContent) {
+                    if (content.isDirectory()) {
+                        CompletableFuture<Void> subTask = processPractise(content.getPath())
+                                .thenAccept(practise -> {
+                                    practises.put(content.getName(), practise);
+                                    log.info("Practise: {} indexed", content.getName());
+                                })
+                                .exceptionally(e -> {
+                                    log.error("Failed to process practice: {}", content.getName(), e);
+                                    return null;
+                                });
+                        subTasks.add(subTask);
+                    }
                 }
+
+                // Wait for all sub-practices to be processed
+                CompletableFuture.allOf(subTasks.toArray(new CompletableFuture[0])).join();
+
+                return new Principle(markdownContent, metadata, practises);
+            } catch (Exception e) {
+                log.error("Failed to process principle: {}", path, e);
+                throw new RuntimeException("Failed to process principle: " + path, e);
             }
-
-            // Wait for all sub-practices to be processed
-            CompletableFuture.allOf(subTasks.toArray(new CompletableFuture[0])).join();
-
-            return new Principle(markdownContent, metadata, practises);
         }, executorService);
     }
 
     private CompletableFuture<Practise> processPractise(String path) {
         return CompletableFuture.supplyAsync(() -> {
-            String directoryName = getLastPartOfPath(path);
+            try {
+                String directoryName = getLastPartOfPath(path);
 
-            String jsonPath = path + "/" + directoryName + ".json";
-            String mdPath = path + "/" + directoryName + ".md";
+                String jsonPath = path + "/" + directoryName + ".json";
+                String mdPath = path + "/" + directoryName + ".md";
 
-            // Get metadata from JSON file
-            var jsonString = githubClient.getFileContent(jsonPath);
-            var metadata = parseMetadata(jsonString, PractiseMetadata.class);
+                // Get metadata from JSON file
+                var jsonString = githubClient.getFileContent(jsonPath);
+                var metadata = parseMetadata(jsonString, PractiseMetadata.class);
 
-            // Get content from MD file
-            var markdownContent = githubClient.getFileContent(mdPath);
+                // Get content from MD file
+                var markdownContent = githubClient.getFileContent(mdPath);
 
-            // Process sub-directories (sub-practices)
-            List<GHContent> directoryContent = githubClient.getDirectoryContent(path);
-            ConcurrentMap<String, Practise> subPractises = new ConcurrentHashMap<>();
+                // Process sub-directories (sub-practices)
+                List<GHContent> directoryContent = githubClient.getDirectoryContent(path);
+                ConcurrentMap<String, Practise> subPractises = new ConcurrentHashMap<>();
 
-            List<CompletableFuture<Void>> subTasks = new ArrayList<>();
+                List<CompletableFuture<Void>> subTasks = new ArrayList<>();
 
-            for (GHContent content : directoryContent) {
-                if (content.isDirectory()) {
-                    CompletableFuture<Void> subTask = processPractise(content.getPath())
-                            .thenAccept(practise -> {
-                                subPractises.put(content.getName(), practise);
-                                log.info("Practise: {} indexed", content.getName());
-                            })
-                            .exceptionally(e -> {
-                                log.error("Failed to process sub-practice: {}", content.getName(), e);
-                                return null;
-                            });
-                    subTasks.add(subTask);
+                for (GHContent content : directoryContent) {
+                    if (content.isDirectory()) {
+                        CompletableFuture<Void> subTask = processPractise(content.getPath())
+                                .thenAccept(practise -> {
+                                    subPractises.put(content.getName(), practise);
+                                    log.info("Practise: {} indexed", content.getName());
+                                })
+                                .exceptionally(e -> {
+                                    log.error("Failed to process sub-practice: {}", content.getName(), e);
+                                    return null;
+                                });
+                        subTasks.add(subTask);
+                    }
                 }
+
+                // Wait for all sub-practices to be processed
+                CompletableFuture.allOf(subTasks.toArray(new CompletableFuture[0])).join();
+
+                return new Practise(markdownContent, metadata, subPractises);
+            } catch (Exception e) {
+                log.error("Failed to process practice: {}", path, e);
+                throw new RuntimeException("Failed to process practice: " + path, e);
             }
-
-            // Wait for all sub-practices to be processed
-            CompletableFuture.allOf(subTasks.toArray(new CompletableFuture[0])).join();
-
-            return new Practise(markdownContent, metadata, subPractises);
         }, executorService);
     }
 
