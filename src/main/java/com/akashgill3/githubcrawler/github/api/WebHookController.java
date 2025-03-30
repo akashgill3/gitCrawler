@@ -1,8 +1,7 @@
-package com.akashgill3.githubcrawler.controller;
+package com.akashgill3.githubcrawler.github.api;
 
-import com.akashgill3.githubcrawler.github.GitHubService;
+import com.akashgill3.githubcrawler.github.core.GitHubService;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
@@ -13,13 +12,11 @@ import java.util.Set;
 @RestController
 @RequestMapping("/")
 @CrossOrigin(maxAge = 3600)
-public class GitHubWebHookController {
-    private static final Logger log = LoggerFactory.getLogger(GitHubWebHookController.class);
-    private final ObjectMapper jacksonObjectMapper;
+public class WebHookController {
+    private static final Logger log = LoggerFactory.getLogger(WebHookController.class);
     private final GitHubService gitHubService;
 
-    public GitHubWebHookController(ObjectMapper jacksonObjectMapper, GitHubService gitHubService) {
-        this.jacksonObjectMapper = jacksonObjectMapper;
+    public WebHookController(GitHubService gitHubService) {
         this.gitHubService = gitHubService;
     }
 

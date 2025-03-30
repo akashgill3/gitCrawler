@@ -1,4 +1,4 @@
-package com.akashgill3.githubcrawler.github;
+package com.akashgill3.githubcrawler.github.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

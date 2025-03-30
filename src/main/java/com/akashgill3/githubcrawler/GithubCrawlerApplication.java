@@ -1,6 +1,6 @@
 package com.akashgill3.githubcrawler;
 
-import com.akashgill3.githubcrawler.github.GitHubProperties;
+import com.akashgill3.githubcrawler.github.config.GitHubProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
