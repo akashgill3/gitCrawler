@@ -1,6 +1,7 @@
 package com.akashgill3.githubcrawler.github;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHRepository;
@@ -10,11 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -22,6 +21,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
 @Service
@@ -32,14 +32,16 @@ public class GitHubService {
     private final ObjectMapper objectMapper;
     private final ConcurrentMap<String, Principle> principles;
     private final ExecutorService executorService;
+    private final ObjectMapper jacksonObjectMapper;
 
     private GHRepository repo;
 
-    public GitHubService(GitHubProperties properties, ObjectMapper objectMapper) {
+    public GitHubService(GitHubProperties properties, ObjectMapper objectMapper, ObjectMapper jacksonObjectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.principles = new ConcurrentHashMap<>();
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        this.jacksonObjectMapper = jacksonObjectMapper;
     }
 
     public void init() throws IOException {
@@ -47,7 +49,7 @@ public class GitHubService {
         repo = gitHub.getRepository(properties.repository());
     }
 
-    @EventListener(ApplicationReadyEvent.class)
+//    @EventListener(ApplicationReadyEvent.class)
     public void indexOnStartup() {
         CompletableFuture.runAsync(() -> {
             try {
@@ -103,7 +105,7 @@ public class GitHubService {
     private CompletableFuture<Principle> processPrinciple(GHRepository repo, String path) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String directoryName = getLastPartOfPath(path).toLowerCase();
+                String directoryName = getLastPartOfPath(path);
 
                 // Get metadata from JSON file
                 GHContent jsonContent = repo.getFileContent(path + "/" + directoryName + ".json");
@@ -148,7 +150,7 @@ public class GitHubService {
     private CompletableFuture<Practise> processPractise(GHRepository repo, String path) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String directoryName = getLastPartOfPath(path).toLowerCase();
+                String directoryName = getLastPartOfPath(path);
 
                 // Get metadata from JSON file
                 var jsonContent = repo.getFileContent(path + "/" + directoryName + ".json");
@@ -192,11 +194,50 @@ public class GitHubService {
 
     private String getLastPartOfPath(String path) {
         String[] parts = path.split("/");
-        return parts[parts.length - 1];
+        return parts[parts.length - 1].toLowerCase();
     }
 
     private <T extends Metadata> T parseMetadata(String json, Class<T> type) throws JsonProcessingException {
         return objectMapper.readValue(json, type);
+    }
+
+    public void reindexPrinciples(Set<String> affectedPrinciples) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Starting selective reindexing of {} principles", affectedPrinciples.size());
+                Instant start = Instant.now();
+                // Ensure repo is initialized
+                if (repo == null) init();
+                // Process each affected principle
+                List<CompletableFuture<Void>> tasks = new ArrayList<>();
+
+                for (String principleName : affectedPrinciples) {
+                        log.info("Reindexing principle: {}", principleName);
+
+                        // Process this principle
+                        CompletableFuture<Principle> principleFuture = processPrinciple(repo, principleName);
+
+                        CompletableFuture<Void> task = principleFuture.thenAccept(principle -> {
+                            principles.put(principleName, principle);
+                            log.info("Principle: {} reindexed successfully", principleName);
+                        }).exceptionally(ex -> {
+                            log.error("Failed to reindex principle: {}", principleName, ex);
+                            return null;
+                        });
+
+                    tasks.add(task);
+                }
+
+                // Wait for all reindexing tasks to complete
+                CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
+
+                Instant end = Instant.now();
+                log.info("Reindexed {} principles in {} ms", affectedPrinciples.size(), Duration.between(start, end).toMillis());
+
+            } catch (Exception e) {
+                log.error("Failed to reindex principles", e);
+            }
+        }, executorService);
     }
 
     sealed interface Node<T extends Metadata> permits Principle, Practise {
@@ -259,6 +300,8 @@ public class GitHubService {
             return gitHubService.getPrinciples().get(name);
         }
     }
+
+
 
     private Map<String, Principle> getPrinciples() {
         return principles;
