@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+	<body>
+		<!-- Content Fragment -->
+		<div>
+			<!-- Header with metadata -->
+			<div class="border-b pb-4 mb-4">
+				<div class="flex items-center justify-between">
+					<h2 class="text-2xl font-bold text-gray-800" th:text="${name}">Item Name</h2>
+					<span
+						class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600"
+						th:text="'Owner: ' + ${owner}"
+						>Owner</span
+					>
+				</div>
+
+				<!-- Principle value -->
+				<div th:if="${type == 'principle'}" class="mt-2">
+					<p class="text-sm text-gray-500 font-medium">Value:</p>
+					<p class="text-gray-700" th:text="${value}">Principle value</p>
+				</div>
+
+				<!-- Practice/Subpractice metrics -->
+				<div th:if="${type == 'practice' || type == 'subpractice'}" class="mt-2">
+					<p class="text-sm text-gray-500 font-medium">Metrics:</p>
+					<p class="text-gray-700" th:text="${metrics}">Practice metrics</p>
+				</div>
+			</div>
+
+			<!-- Content -->
+			<div class="prose prose-lg max-w-none" th:utext="${content}">
+				<!-- Markdown content will be rendered here -->
+			</div>
+		</div>
+	</body>
+</html>
