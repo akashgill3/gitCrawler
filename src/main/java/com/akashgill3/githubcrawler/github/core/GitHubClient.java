@@ -8,21 +8,17 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 
 @Component
 public class GitHubClient {
     private static final Logger log = LoggerFactory.getLogger(GitHubClient.class);
 
     private final GitHubProperties properties;
-    private final ExecutorService executorService;
     private GitHub gitHub;
     private GHRepository repository;
 
-    public GitHubClient(GitHubProperties properties, ExecutorService executorService) {
+    public GitHubClient(GitHubProperties properties) {
         this.properties = properties;
-        this.executorService = executorService;
     }
 
     public void init() throws IOException {
