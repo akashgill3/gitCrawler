@@ -1,6 +1,6 @@
-package com.akashgill3.githubcrawler.github.api;
+package com.akashgill3.githubcrawler.github.controller;
 
-import com.akashgill3.githubcrawler.github.core.GitHubService;
+import com.akashgill3.githubcrawler.github.service.GitHubService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package com.akashgill3.githubcrawler.github.core;
+package com.akashgill3.githubcrawler.github.service;
 
 import com.akashgill3.githubcrawler.github.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;

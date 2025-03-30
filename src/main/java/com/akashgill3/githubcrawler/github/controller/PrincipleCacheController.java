@@ -1,7 +1,7 @@
-package com.akashgill3.githubcrawler.github.api;
+package com.akashgill3.githubcrawler.github.controller;
 
 
-import com.akashgill3.githubcrawler.github.core.PrincipleCache;
+import com.akashgill3.githubcrawler.github.service.PrincipleCache;
 import com.akashgill3.githubcrawler.github.model.Principle;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
